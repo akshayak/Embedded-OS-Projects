@@ -1,6 +1,6 @@
 
 
-List of files included:
+# List of files included:
 Under device folder:
 1) Makefile - for cross compilation for device file
 2) hcsr_dev.h - header file
@@ -12,8 +12,8 @@ Under driver folder:
 
 * test.sh - bash script to test the platform device/driver structure
 
------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Execution steps:
+
+# Execution steps:
 1) Execute 'make' command in the host linux system once in device folder and once in driver folder. This produces the hcsr_device.ko and hcsr_driver1.ko respectively.
 2) Copy these two files into windows first. (I was unable to connect the ethernet to the linux VM, so it is connected to Windows). Type SCP commands in windows command prompt.
 SCP Command Format: scp -P 2222 linux hostpath windows path
@@ -39,13 +39,13 @@ insmod hcsr_driver1.ko
 chmod 777 test.sh
 7) Execute  main
 ./test.sh
------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Results and Output:
--> When we insmod the device module, it registers two devices as platform devices
--> When we insmod the driver, it probes for the 2 platform devices and creates the devices and the sys attributes
--> We can navigate to the sys/class/HCSR/HCSR_0 folder to see 6 attributes created.
--> In the test.sh file we first write values to these attributes and then enable the measurement
--> After disabling the measurement, we read the distance from the distance attribute.
+
+# Results and Output:
+* When we insmod the device module, it registers two devices as platform devices
+* When we insmod the driver, it probes for the 2 platform devices and creates the devices and the sys attributes
+* We can navigate to the sys/class/HCSR/HCSR_0 folder to see 6 attributes created.
+* In the test.sh file we first write values to these attributes and then enable the measurement
+* After disabling the measurement, we read the distance from the distance attribute.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
