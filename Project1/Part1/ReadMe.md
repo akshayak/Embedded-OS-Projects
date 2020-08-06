@@ -1,11 +1,11 @@
 
 
-List of files included:
+# List of files included:
 1) Makefile - for cross compilation
 2) rbt530_drv.c - device driver source file
 3) main_part1.c - main program source file
------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Execution steps:
+
+# Execution steps:
 1) Execute 'make' command in the host linux system. This produces the rbt530_drv.ko and main_part1 executable file
 2) Copy these two files into windows first. (I was unable to connect the ethernet to the linux VM, so it is connected to Windows). Type SCP commands in windows command prompt.
 SCP Command Format: scp -P 2222 linux hostpath windows path
@@ -28,13 +28,13 @@ insmod rbt530_drv.ko
 chmod 777 main_part1
 7) Execute main_part1
 ./main_part1
------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Results and Output:
--> The main program first registers 4 threads with 2 threads each to populate for each rbtree driver
--> Each rbtree is first populated with 50 objects using write opeation with random integers as keys
--> After initial population, 100 operations of read, write and ioctl are triggered randomly to work on the same populated tree, for both trees.
--> While write happens, the written key is printed, while read happens, the read node value is printed.
--> Each thread is synchronized with the other thread populating the same tree. This synchronization is done through mutex locks
------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+# Results and Output:
+* The main program first registers 4 threads with 2 threads each to populate for each rbtree driver
+* Each rbtree is first populated with 50 objects using write opeation with random integers as keys
+* After initial population, 100 operations of read, write and ioctl are triggered randomly to work on the same populated tree, for both trees.
+* While write happens, the written key is printed, while read happens, the read node value is printed.
+* Each thread is synchronized with the other thread populating the same tree. This synchronization is done through mutex locks
+
 
 
