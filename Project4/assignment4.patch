@@ -1,0 +1,303 @@
+diff -uNr kernel.old/arch/x86/syscalls/syscall_32.tbl kernel.new/arch/x86/syscalls/syscall_32.tbl
+--- kernel.old/arch/x86/syscalls/syscall_32.tbl	2017-06-17 10:44:31.000000000 -0700
++++ kernel.new/arch/x86/syscalls/syscall_32.tbl	2020-04-29 21:29:44.335903376 -0700
+@@ -365,3 +365,5 @@
+ 356	i386	memfd_create		sys_memfd_create
+ 357	i386	bpf			sys_bpf
+ 358	i386	execveat		sys_execveat			stub32_execveat
++359	i386	insdump			sys_insdump
++360	i386	rmdump			sys_rmdump
+diff -uNr kernel.old/include/linux/dynamic_dump_stack.h kernel.new/include/linux/dynamic_dump_stack.h
+--- kernel.old/include/linux/dynamic_dump_stack.h	1969-12-31 17:00:00.000000000 -0700
++++ kernel.new/include/linux/dynamic_dump_stack.h	2020-04-29 21:28:09.627281378 -0700
+@@ -0,0 +1,14 @@
++#include <linux/ioctl.h>
++
++extern struct list_head dstack_list;
++extern int removedstack_onexit(pid_t pid);
++
++
++struct output
++{
++	int d_id;
++};
++
++struct dumpmode_t {
++	 int mode;
++};
+diff -uNr kernel.old/kernel/exit.c kernel.new/kernel/exit.c
+--- kernel.old/kernel/exit.c	2017-06-17 10:44:58.000000000 -0700
++++ kernel.new/kernel/exit.c	2020-04-29 21:32:16.855605369 -0700
+@@ -58,6 +58,7 @@
+ #include <asm/unistd.h>
+ #include <asm/pgtable.h>
+ #include <asm/mmu_context.h>
++#include <linux/dynamic_dump_stack.h> //to remove kprobes to do_exit function
+ 
+ static void exit_mm(struct task_struct *tsk);
+ 
+@@ -655,6 +656,11 @@
+ 	int group_dead;
+ 	TASKS_RCU(int tasks_rcu_i);
+ 
++//adding function to remove kprobes for dump stack if CONFIG_DYNAMIC_DUMP_STACK is enabled
++#ifdef CONFIG_DYNAMIC_DUMP_STACK
++	removedstack_onexit(tsk->pid);
++#endif
++
+ 	profile_task_exit(tsk);
+ 
+ 	WARN_ON(blk_needs_flush_plug(tsk));
+diff -uNr kernel.old/lib/dynamic_dump_stack.c kernel.new/lib/dynamic_dump_stack.c
+--- kernel.old/lib/dynamic_dump_stack.c	1969-12-31 17:00:00.000000000 -0700
++++ kernel.new/lib/dynamic_dump_stack.c	2020-04-29 21:26:29.117561374 -0700
+@@ -0,0 +1,222 @@
++#include<linux/kernel.h>
++#include<linux/init.h>
++#include<linux/sched.h>
++#include<linux/syscalls.h>
++#include<linux/kallsyms.h>
++#include<linux/string.h>
++#include<linux/kprobes.h>
++#include <linux/slab.h>
++#include<linux/module.h>
++#include <linux/types.h>
++#include<linux/dynamic_dump_stack.h>
++
++#define MAX_LEN_SYMBOL 50
++
++
++struct dump_node
++{
++	struct kprobe kp;
++	int dumpid;
++    pid_t tgid;
++    pid_t pid;
++    int dump_mode;
++    char symbol[50];
++	struct list_head dump_list;
++};
++
++
++static int dump_id =1;
++struct list_head dstack_list = LIST_HEAD_INIT(dstack_list);
++struct dump_node *dumpnode;
++
++
++
++
++int handler_pre(struct kprobe *p, struct pt_regs *regs)
++ {
++
++
++    struct task_struct* cur_task = current;
++    struct dump_node *cur_node;
++    pid_t pid,tgid;
++
++    
++    
++
++    pid = cur_task->pid;
++    tgid = cur_task->tgid;
++    
++    
++    cur_node = container_of(p, struct dump_node, kp);
++
++    printk("***PRE HANDLER of kprobe: p->addr=0x%p, for symbol: %s ***\n", p->addr,cur_node->symbol);
++
++    //if mode>1, then enable for all processes
++    if(cur_node->dump_mode > 1)
++    {   
++     dump_stack();
++    }
++
++    //if mode=0, then enable for owner process only
++    else if((cur_node->dump_mode==0) && (pid==cur_node->pid))
++    {   
++     dump_stack();
++    }
++    
++    //if mode=1, enable for all processes with same parent
++    else if((cur_node->dump_mode==1) && (tgid==cur_node->tgid || pid==cur_node->pid))
++    {            
++     dump_stack();
++    }
++    
++    return 0;
++ }
++  
++  /*kprobe post_handler: called after the probed instruction is executed*/
++  void handler_post(struct kprobe *p, struct pt_regs *regs, unsigned long flags)
++  {
++          printk("post_handler: p->addr=0x%p\n",
++                  p->addr);
++
++    return;
++  }
++
++
++ SYSCALL_DEFINE2(insdump,const char __user *, symbolname, struct dumpmode_t __user *, mode)
++{
++	#ifdef CONFIG_DYNAMIC_DUMP_STACK
++    char *sym_name;
++	unsigned long sym_address;
++    int ret;
++    struct dumpmode_t d_mode;
++    struct task_struct* task=current;
++    pid_t pid=task->pid;
++    pid_t tgid =task->tgid;
++    //printk("Inside insdump !!\n");
++
++    //printk("DOING INSDUMP\n");
++    if (copy_from_user(&d_mode, mode,sizeof(d_mode))){
++        return -EFAULT;
++    } 
++    sym_name = kmalloc(sizeof(char)*MAX_LEN_SYMBOL, GFP_KERNEL);
++    strncpy_from_user((char *)sym_name,symbolname, MAX_LEN_SYMBOL);
++    
++
++    sym_address = kallsyms_lookup_name(sym_name);  
++
++    
++    //if symbol is not found in the kallsyms then return EINVAL
++    if(sym_address==0)
++    {
++        printk(KERN_INFO "INVALID SYMBOL\n");
++        return -EINVAL;
++    }
++    
++    dumpnode = (struct dump_node *)kmalloc(sizeof(struct dump_node), GFP_KERNEL);
++    memset(dumpnode, 0, sizeof(struct dump_node));
++
++
++    dumpnode->dump_mode = d_mode.mode;
++    
++    dumpnode->tgid = tgid;
++    dumpnode->pid = pid;
++    dumpnode->dumpid = dump_id++;    
++    snprintf(dumpnode->symbol, sizeof(char)*MAX_LEN_SYMBOL, "%s", sym_name);
++    printk("***ADDING KPROBE, PARAMS FROM USER: mode= %d, symbolname=%s ***",dumpnode->dump_mode,dumpnode->symbol);
++
++    memset(&dumpnode->kp, 0, sizeof(struct kprobe));
++    dumpnode->kp.addr = (kprobe_opcode_t *)sym_address;
++    dumpnode->kp.pre_handler = handler_pre;
++    dumpnode->kp.post_handler = handler_post;
++    
++
++    //registering the kprobe
++    ret=register_kprobe(&dumpnode->kp); 
++    if (ret < 0) {
++        pr_err("register_kprobe failed, returned %d\n", ret);
++        return EINVAL;
++    }   
++
++    
++    list_add(&dumpnode->dump_list, &dstack_list);
++    printk(KERN_INFO "***INSERTION OF KPROBE SUCCESSSFUL, dumpid:%d !!***\n",dumpnode->dumpid);
++
++    return dumpnode->dumpid;
++    #else	
++	return -1; //return -1 if CONFIG_DYNAMIC_DUMP_STACK is not enabled
++	
++	#endif
++
++}
++
++SYSCALL_DEFINE1(rmdump, int, dumpid)
++{
++
++	#ifdef CONFIG_DYNAMIC_DUMP_STACK
++	//int d_id;
++    struct task_struct* cur_task = current;
++    pid_t pid = cur_task->pid;
++    struct dump_node* cur_node = NULL;
++	struct list_head* tmp = NULL;
++    bool found = false;
++    //copy_from_user(&d_id,&buf,sizeof(d_id));
++
++    printk("***INSIDE rmdump, dumpid= %d ***",dumpid);
++
++    //compare the received dumpid with the dumpid of each kprobe in the list
++    list_for_each(tmp, &dstack_list) 
++    {
++        cur_node = list_entry(tmp, struct dump_node, dump_list);
++        if(cur_node->dumpid == dumpid && cur_node->pid == pid) 
++        {
++            printk("***DUMPID FOUND for symbol: %s***\n",cur_node->symbol);
++            unregister_kprobe(&cur_node->kp);
++            list_del(tmp);
++            found=true;
++            printk("***UNREGISTERED KPROBE***\n");
++            break;
++        }
++    }
++           
++    if(!found) //if the dumpid is not found, then return EINVAL
++    {
++        printk(KERN_INFO "dumpid not found\n");
++        return -EINVAL;
++    }
++
++	return 0;
++	#else
++	return -1; //return -1 if CONFIG_DYNAMIC_DUMP_STACK is not enabled
++	#endif
++
++}
++
++//removing all the kprobes attached to a process when the process exits
++
++int removedstack_onexit(pid_t pid) 
++{
++	struct list_head* pos, *q;
++	
++ 
++    list_for_each_safe(pos,q, &dstack_list) 
++    {	
++    	struct dump_node* cur_node = NULL;
++    	printk("***EXIT PROCESS..REMOVING ALL KPROBES FOR THE PROCESS: %d ***\n",pid);
++    	
++        cur_node = list_entry(pos, struct dump_node, dump_list);
++        if(cur_node->pid == pid)
++        {
++        	printk("***KPROBE FOUND FOR SYMBOL %s***\n",cur_node->symbol);
++        	unregister_kprobe(&cur_node->kp);
++        	printk("***UNREGISTERED KPROBE***\n");
++        	list_del(pos);
++        	kfree(cur_node);
++
++        }
++        
++    }
++  
++
++    return 0;
++
++}
+diff -uNr kernel.old/lib/Kconfig.debug kernel.new/lib/Kconfig.debug
+--- kernel.old/lib/Kconfig.debug	2017-06-17 10:44:58.000000000 -0700
++++ kernel.new/lib/Kconfig.debug	2020-04-29 21:31:33.933077371 -0700
+@@ -15,6 +15,12 @@
+ 	  The behavior is also controlled by the kernel command line
+ 	  parameter printk.time=1. See Documentation/kernel-parameters.txt
+ 
++config DYNAMIC_DUMP_STACK
++	bool "To enable the insmod and rmmod system calls"
++	help
++	   This option is to configure to whether or not the dump stack system calls should be enabled.
++	   If Y then the two syscalls will be enabled. If N then they will be no ops 
++
+ config MESSAGE_LOGLEVEL_DEFAULT
+ 	int "Default message log level (1-7)"
+ 	range 1 7
+diff -uNr kernel.old/lib/Makefile kernel.new/lib/Makefile
+--- kernel.old/lib/Makefile	2017-06-17 10:44:58.000000000 -0700
++++ kernel.new/lib/Makefile	2020-04-29 21:31:11.100499370 -0700
+@@ -21,6 +21,7 @@
+ 
+ lib-y	+= kobject.o klist.o
+ obj-y	+= lockref.o
++obj-y	+= dynamic_dump_stack.o
+ 
+ obj-y += bcd.o div64.o sort.o parser.o halfmd4.o debug_locks.o random32.o \
+ 	 bust_spinlocks.o hexdump.o kasprintf.o bitmap.o scatterlist.o \
