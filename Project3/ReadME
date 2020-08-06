@@ -1,13 +1,25 @@
 
+# Generic Netlink Socket and SPI Device Programming
 
-List of files included:
+* In the assignment, we have developed an application program and a kernel module, and used a generic netlink socket to enable the communication between them. 
+* There are three types of message to be sent by the application process to the kernel module:
+  1. A display pattern for the LED dot matrix,
+  2. A configuration command for SPI CS pin, HC-SR04 trigger and echo pins,
+  3. A request to measure distance (which is the average of 5 samples collected from HC-SR04).
+* The application process then receives a message from the kernel module that contains a measured distance. Based on the measured distance, it determines any updates of display pattern or request a new measurement after a fixed period.
+* All IO operations are done asynchronously with the communication operation.
+* To display patterns, we have used a simple 8X8 LED matrix which is equipped with a MAX7219 driver.
+* In addition to source current for LED display, the driver chip can buffer display data and scan digits using
+an internal oscillator.
+
+# List of files included:
 1) Makefile - for cross compilation
 2) spiDotMatrix.c - spi driver source file
 3) main.c - main program source file
 4) genl_header.h - header file 
 5) Results - contains screenshots of results
------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Execution steps:
+
+# Execution steps:
 1) Execute 'make' command in the host linux system. This produces the spiDotMatrix.ko and main executable file
 2) Copy these two files into windows first. (I was unable to connect the ethernet to the linux VM, so it is connected to Windows). Type SCP commands in windows command prompt.
 SCP Command Format: scp -P 2222 linux hostpath windows path
@@ -33,7 +45,7 @@ chmod 777 main
 7) Execute  main
 ./main
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Results and Output:
+# Results and Output:
 -> On execution of main application, the socket gets prepped and sends a message to the kernel with the following values:
 1) trigger pin - taken from the macro included in the main file
 2) echo pin - taken from the macro included in the main file
