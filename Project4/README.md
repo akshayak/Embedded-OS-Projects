@@ -1,13 +1,13 @@
 
 
-LIST OF FILES INCLUDED:
+# LIST OF FILES INCLUDED:
 1) Makefile - for cross compilation of user application
 2) assignment4.patch - patch file for the kernel with the system call changes included
 3) main.c - main program source file to test the system call
 4) dynamic_dump_stack.h - header file 
 
------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-EXECUTION STEPS:
+
+# EXECUTION STEPS:
 1) cd into the kernel directory of the fresh kernel copy. Patch the fresh version of the kernel with the patch file using the command:
 patch -p1 < ../assignment4.patch
 2) In order to enable the insmod and rmmod system calls, add the following to kernel/.config file
@@ -35,8 +35,8 @@ ssh root@192.168.1.5
 chmod 777 main
 10) Execute  main
 ./main
------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-RESULTS AND OUTPUT:
+
+# RESULTS AND OUTPUT:
 1) On executing main, it first asks for the dump mode. We need to input the dump mode.
 2) For testing purpose I have created a separate module that creates a device called "/dev/misc_device" which I have given as the value for TEST_DRIVERS.
 I have tested the insdump and rmdump on the 4 methods of this module : misc_open, misc_close, misc_read, misc_write. These 4 are the values of my TEST_SYMBOL1, TEST_SYMBOL2, TEST_SYMBOL3 and TEST_SYMBOL4 respectively.
@@ -47,10 +47,10 @@ In place of these symbols, the testing symbols can be introduced.
 6) After testing for owner process, thread process and fork process, the application calls rmdump for TEST_SYMBOL1 and TEST_SYMBOL2 only.
 7) The kprobe associated with rest of the two test symbols TEST_SYMBOL3 and TEST_SYMBOL4 will be automatically removed when the process exits.
 
----------------------------------------------------------------------------------------------------------------------------------------------------------------------
-SAMPLE OUTPUT:
 
-USER SPACE TEST APPLICATION: 
+# SAMPLE OUTPUT:
+
+# USER SPACE TEST APPLICATION: 
 root@quark:~# ./main
 Enter the dump mode
 0
@@ -71,8 +71,8 @@ Calling rmdump for TEST_SYMBOL1 and TEST_SYMBOL2
 Opening TEST_DRIVERS from main again..
 Opened TEST_DRIVERS from main again
 
---------------------------------------------------------------------------------------------------------------------------------------------------------------------
-KERNEL LOGS WHEN EXECUTING USER SPACE APPLICATION:
+
+# KERNEL LOGS WHEN EXECUTING USER SPACE APPLICATION:
 [ 3147.408653] ***ADDING KPROBE, PARAMS FROM USER: mode= 0, symbolname=misc_open ***
 [ 3147.418457] ***INSERTION OF KPROBE SUCCESSSFUL, dumpid:5 !!***
 [ 3147.520354] ***ADDING KPROBE, PARAMS FROM USER: mode= 0, symbolname=misc_close ***
