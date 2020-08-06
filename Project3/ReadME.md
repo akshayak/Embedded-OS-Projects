@@ -1,7 +1,7 @@
 
 # Generic Netlink Socket and SPI Device Programming
 
-* In the assignment, we have developed an application program and a kernel module, and used a generic netlink socket to enable the communication between them. 
+* In this project, we have developed an application program and a kernel module, and used a generic netlink socket to enable the communication between them. 
 * There are three types of message to be sent by the application process to the kernel module:
   1. A display pattern for the LED dot matrix,
   2. A configuration command for SPI CS pin, HC-SR04 trigger and echo pins,
