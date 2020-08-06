@@ -10,7 +10,7 @@
 * In this part, a kernel module is built that creates a character device, named as “RBprobe”. 
 * RBprobe uses kprobe API to add and remove dynamic probes in any kernel programs. 
 * With the module’s device file interface, a user program can place a kprobe on a specific line of kernel code, access kernel information and variables
-* Two RB trees are utilized, “rbt530-1” and “rbt530_2”, and test program reads in kproberequest information from console and then invokes RBprobe device file interface to register/unregister a kprobe at a given location of rbt530_drv module. 
+* Two RB trees are utilized, “rbt530-1” and “rbt530_2”, and test program reads in kprobe request information from console and then invokes RBprobe device file interface to register/unregister a kprobe at a given location of rbt530_drv module. 
 * When the kprobe is hit, the handler retrieves few trace data items in a buffer such that they can be read out via RBprobe module interface. 
 * In the scenario, the user input request consists of the location (offset) of a source line of code on the execution path of read and write functions of rbt530_drv. 
 * The buffer is with a fixed size and holds one set of trace data, i.e. any old trace data will be overwritten when new trace data is generated. 
